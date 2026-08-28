@@ -1,0 +1,2 @@
+[env]
+MANGA_OCR_MODELS_DIR = {value="models", relative=true}
