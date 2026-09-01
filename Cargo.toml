@@ -7,3 +7,5 @@ edition = "2024"
 image = {version = "0.25.10", default-features = false, features = ["png","jpeg"]}
 ja-furigana = "0.3.1"
 manga-ocr-rs = "1.0.0"
+ort = "2.0.0-rc.13"
+sentencepiece = "0.14.0"

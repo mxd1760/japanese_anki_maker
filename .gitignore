@@ -1,4 +1,5 @@
 /target/
 /models/
 /.vscode/
+/.vscode/settings.json
 /test_images/

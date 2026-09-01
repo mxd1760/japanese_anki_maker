@@ -1,17 +1,25 @@
 use manga_ocr_rs::MangaOcr;
 use furigana::Furigana;
-// use std::path::Path;
+use sentencepiece::SentencePieceProcessor;
 
 
 
 fn main() -> Result<(), Box<dyn std::error::Error>>{
     let ocr = check_manga_ocr()?;
     let f = Furigana::minimal()?;
+    let spp = SentencePieceProcessor::open("./models/fugumt_onnx/source.spm")
+        .map_err(|e| format!("Failed to load SentencePiece model: {e}"))?;
 
-    let img = image::open("./test_images/Screenshot 2025-04-20 123359.png")?;
+    // let test_text = "お前わもう死んでいる";
+    let img = image::open("./test_images/Screenshot 2025-04-20 134936.png")?;
     
     let text = ocr.recognize(&img)?;
-    println!{" source: {},\n reading: {}",&text,f.to_hiragana(&text)}
+    let pieces = spp.encode(&text).map_err(|e| format!("Failed to tokenize text: {e}"))?;
+    println!(" source: {},\n reading: {}",&text,f.to_hiragana(&text));
+    for p in &pieces{
+        println!("{:?} -> id {}",p.piece,p.id);
+    }
+
 
     Ok(())
 }
