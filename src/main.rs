@@ -10,6 +10,15 @@ struct Translator {
     decoder_session: Session,
 }
 
+struct Note {
+    japanese: String,
+    furigana: Option<String>,
+    english: String,
+    image: Option<PathBuf>,
+    audio: Option<PathBuf>,
+    tags: Vec<String>,
+}
+
 const SOURCE_SPM_FILE: &str = "./models/fugumt_onnx/source.spm";
 const TARGET_SPM_FILE: &str = "./models/fugumt_onnx/target.spm";
 const ENCODER_MODEL_FILE: &str = "./models/fugumt_onnx/encoder_model.onnx";
