@@ -1,3 +1,6 @@
+use std::fs::File;
+use std::io::prelude::*;
+
 use furigana::Furigana;
 use manga_ocr_rs::MangaOcr;
 use ort::{session::Session, value::Tensor};
@@ -10,13 +13,14 @@ struct Translator {
     decoder_session: Session,
 }
 
-struct Note {
+#[derive(Clone)]
+pub struct Note {
     japanese: String,
     furigana: Option<String>,
     english: String,
-    image: Option<PathBuf>,
-    audio: Option<PathBuf>,
-    tags: Vec<String>,
+    image: Option<String>,
+    audio: Option<String>,
+    // tags: Vec<String>,
 }
 
 const SOURCE_SPM_FILE: &str = "./models/fugumt_onnx/source.spm";
@@ -136,19 +140,74 @@ impl Translator {
     }
 }
 
+impl Note {
+    pub fn save_to_anki_text_file(notes: &[Self]) -> Result<(), Box<dyn std::error::Error>> {
+        let mut file = File::create("output.txt")?;
+        // write Anki headers
+        file.write(
+            r"#separator:Semicolon
+#html:true
+#columns:Expression;Reading;Meaning;Image_URI;Audio
+#notetype:iKnow! Vocabulary
+#deck:Japanese Anki Maker Tests
+
+"
+                .as_bytes(),
+        )?;
+        // write fields
+        for i in notes {
+            file.write(i.to_anki_text_line().as_bytes())?;
+        }
+        Ok(())
+    }
+
+    fn to_anki_text_line(&self) -> String {
+        let jap: String = self.japanese.clone();
+        let fur: String = match self.furigana.clone() {
+            Some(v) => v,
+            None => "".to_owned(),
+        };
+        let eng: String = self.english.clone();
+        let img: String = match self.image.clone() {
+            Some(v) => format!("<img src={:?}>", v),
+            None => "".to_owned(),
+        };
+        let aud: String = match self.audio.clone() {
+            Some(v) => format!("[sound:{:?}]", v),
+            None => "".to_owned(),
+        };
+
+        format!("{};{};{};{};{}\n", jap, fur, eng, img, aud)
+    }
+}
+
+const FILE_DIR: &str = "./test_images/";
+const FILE_NAME: &str = "Screenshot 2025-04-20 125318.png";
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ocr = check_manga_ocr()?;
     let f = Furigana::minimal()?;
     let mut translator = Translator::new()?;
 
     // let test_text = "お前わもう死んでいる";
-    let img = image::open("./test_images/Screenshot 2025-04-20 125318.png")?;
+    let img = image::open(format!("{}{}", FILE_DIR, FILE_NAME))?;
 
     let text = ocr.recognize(&img)?;
+    let furigana = f.to_hiragana(&text);
     // let text = "私は猫が好きです。";
-    println!(" source: {},\n reading: {}", &text, f.to_hiragana(&text));
+    println!(" source: {},\n reading: {}", &text, furigana);
 
     let translation = translator.translate(&text)?;
+
+    let mut notes = vec![];
+    notes.push(Note {
+        japanese: text,
+        furigana: Some(furigana),
+        english: translation.clone(),
+        image: Some(FILE_NAME.to_owned()),
+        audio: None,
+    });
+    Note::save_to_anki_text_file(&notes)?;
 
     println!(" translation: {translation}");
 
