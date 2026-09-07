@@ -141,17 +141,21 @@ impl Translator {
 }
 
 impl Note {
-    pub fn save_to_anki_text_file(notes: &[Self]) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn save_to_anki_text_file(notes: &[Self],deck_name:Option<String>) -> Result<(), Box<dyn std::error::Error>> {
         let mut file = File::create("output.txt")?;
         // write Anki headers
+        let deck = match deck_name {
+            Some(v) => v,
+            None => "Japanese Anki Maker Template".into(),
+        };
         file.write(
-            r"#separator:Semicolon
+            format!(r"#separator:Semicolon
 #html:true
 #columns:Expression;Reading;Meaning;Image_URI;Audio
-#notetype:iKnow! Vocabulary
-#deck:Japanese Anki Maker Tests
+#notetype:Japanese Anki Maker
+#deck:{}
 
-"
+",deck)
                 .as_bytes(),
         )?;
         // write fields
@@ -249,7 +253,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     
     let notes = Note::from_img_vec(&ocr, &fg, &mut translator, &imgs)?;
-    Note::save_to_anki_text_file(&notes)?;
+    Note::save_to_anki_text_file(&notes,None)?;
 
     
 
