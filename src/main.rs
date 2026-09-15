@@ -6,6 +6,10 @@ use manga_ocr_rs::MangaOcr;
 use ort::{session::Session, value::Tensor};
 use sentencepiece_rs::SentencePieceProcessor;
 
+use crate::progress_bar::ProgressBar;
+
+mod progress_bar;
+
 pub struct Translator {
     spp: SentencePieceProcessor,
     tpp: SentencePieceProcessor,
@@ -195,7 +199,7 @@ impl Note {
 
     let translation = translator.translate(&text)?;
 
-    println!(" source: {},\n reading: {},\n translation: {}", &text, furigana,translation);
+    //println!(" source: {},\n reading: {},\n translation: {}", &text, furigana,translation);
     
     let file_name = img_path.file_name().unwrap().to_str().unwrap().to_owned();
     Ok(Note {
@@ -209,8 +213,10 @@ impl Note {
 
     pub fn from_img_vec(ocr:&MangaOcr,fg:&Furigana,translator:&mut Translator,imgs:&[PathBuf])->Result<Vec<Self>,Box<dyn std::error::Error>>{
         let mut notes = vec![];
+        let mut pb = ProgressBar::new(imgs.len() as u64);
         for i in imgs{
             notes.push(Note::from_img(ocr,fg,translator,i)?);
+            pb.count();
         }
         Ok(notes)
     }
@@ -254,8 +260,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     let notes = Note::from_img_vec(&ocr, &fg, &mut translator, &imgs)?;
     Note::save_to_anki_text_file(&notes,None)?;
-
-    
 
     Ok(())
 }
