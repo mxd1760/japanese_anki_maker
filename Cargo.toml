@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+clap = { version = "4", features = ["derive"] }
 image = {version = "0.25.10", default-features = false, features = ["png","jpeg"]}
 ja-furigana = "0.3.1"
 manga-ocr-rs = "1.0.0"

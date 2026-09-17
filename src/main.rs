@@ -1,5 +1,6 @@
-use std::{fs::File, path::PathBuf};
+use clap::Parser;
 use std::io::prelude::*;
+use std::{fs::File, path::PathBuf};
 
 use furigana::Furigana;
 use manga_ocr_rs::MangaOcr;
@@ -9,6 +10,12 @@ use sentencepiece_rs::SentencePieceProcessor;
 use crate::progress_bar::ProgressBar;
 
 mod progress_bar;
+
+#[derive(Parser)]
+struct Args {
+    #[arg(required = true, num_args = 1..)]
+    files: Vec<PathBuf>,
+}
 
 pub struct Translator {
     spp: SentencePieceProcessor,
@@ -145,7 +152,10 @@ impl Translator {
 }
 
 impl Note {
-    pub fn save_to_anki_text_file(notes: &[Self],deck_name:Option<String>) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn save_to_anki_text_file(
+        notes: &[Self],
+        deck_name: Option<String>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut file = File::create("output.txt")?;
         // write Anki headers
         let deck = match deck_name {
@@ -153,14 +163,17 @@ impl Note {
             None => "Japanese Anki Maker Template".into(),
         };
         file.write(
-            format!(r"#separator:Semicolon
+            format!(
+                r"#separator:Semicolon
 #html:true
 #columns:Expression;Reading;Meaning;Image_URI;Audio
 #notetype:Japanese Anki Maker
 #deck:{}
 
-",deck)
-                .as_bytes(),
+",
+                deck
+            )
+            .as_bytes(),
         )?;
         // write fields
         for i in notes {
@@ -188,47 +201,56 @@ impl Note {
         format!("{};{};{};{};{}\n", jap, fur, eng, img, aud)
     }
 
-    pub fn from_img(ocr:&MangaOcr,fg:&Furigana,translator:&mut Translator,img_path:&PathBuf)->Result<Self,Box<dyn std::error::Error>>{
-// let test_text = "お前わもう死んでいる";
-    let img = image::open(img_path)?;
+    pub fn from_img(
+        ocr: &MangaOcr,
+        fg: &Furigana,
+        translator: &mut Translator,
+        img_path: &PathBuf,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        // let test_text = "お前わもう死んでいる";
+        let img = image::open(img_path)?;
 
-    let text = ocr.recognize(&img)?;
-    let furigana = fg.to_hiragana(&text);
-    // let text = "私は猫が好きです。";
-    
+        let text = ocr.recognize(&img)?;
+        let furigana = fg.to_hiragana(&text);
+        // let text = "私は猫が好きです。";
 
-    let translation = translator.translate(&text)?;
+        let translation = translator.translate(&text)?;
 
-    //println!(" source: {},\n reading: {},\n translation: {}", &text, furigana,translation);
-    
-    let file_name = img_path.file_name().unwrap().to_str().unwrap().to_owned();
-    Ok(Note {
-        japanese: text,
-        furigana: Some(furigana),
-        english: translation.clone(),
-        image: Some(file_name),
-        audio: None,
-    })
+        //println!(" source: {},\n reading: {},\n translation: {}", &text, furigana,translation);
+
+        let file_name = img_path.file_name().unwrap().to_str().unwrap().to_owned();
+        Ok(Note {
+            japanese: text,
+            furigana: Some(furigana),
+            english: translation.clone(),
+            image: Some(file_name),
+            audio: None,
+        })
     }
 
-    pub fn from_img_vec(ocr:&MangaOcr,fg:&Furigana,translator:&mut Translator,imgs:&[PathBuf])->Result<Vec<Self>,Box<dyn std::error::Error>>{
+    pub fn from_img_vec(
+        ocr: &MangaOcr,
+        fg: &Furigana,
+        translator: &mut Translator,
+        imgs: &[PathBuf],
+    ) -> Result<Vec<Self>, Box<dyn std::error::Error>> {
         let mut notes = vec![];
         let mut errors = vec![];
         let mut pb = ProgressBar::new(imgs.len() as u64);
         let size = imgs.len();
-        for i in 0..size{
+        for i in 0..size {
             let img = imgs.get(i).unwrap();
-            let out = Note::from_img(ocr,fg,translator,img);
-            match out{
+            let out = Note::from_img(ocr, fg, translator, img);
+            match out {
                 Ok(v) => notes.push(v),
-                Err(v) => errors.push((i,v)),
+                Err(v) => errors.push((i, v)),
             }
             pb.count();
         }
         let err_count = errors.len();
         println!("{size:} files processed: {err_count:} failed");
-        if errors.len()>0{
-            for (i,v) in errors{
+        if errors.len() > 0 {
+            for (i, v) in errors {
                 let img = imgs.get(i).unwrap();
                 println!("error on img {i:}: {img:?}\n\t{v:?}");
             }
@@ -237,46 +259,65 @@ impl Note {
     }
 }
 
-const FILE_DIR: &str = "./test_images/";
-const FILE_NAME1: &str = "Screenshot 2025-04-20 123359.png";
-const FILE_NAME2: &str = "Screenshot 2025-04-20 123533.png";
-const FILE_NAME3: &str = "Screenshot 2025-04-20 123647.png";
-const FILE_NAME4: &str = "Screenshot 2025-04-20 124615.png";
-const FILE_NAME5: &str = "Screenshot 2025-04-20 124742.png";
-const FILE_NAME6: &str = "Screenshot 2025-04-20 125318.png";
-const FILE_NAME7: &str = "Screenshot 2025-04-20 125408.png";
-const FILE_NAME8: &str = "Screenshot 2025-04-20 131627.png";
-const FILE_NAME9: &str = "Screenshot 2025-04-20 132021.png";
-const FILE_NAME10: &str = "Screenshot 2025-04-20 132312.png";
-const FILE_NAME11: &str = "Screenshot 2025-04-20 134936.png";
-const FILE_NAME12: &str = "Screenshot 2025-04-20 141845.png";
-const FILE_NAME13: &str = "Screenshot 2025-04-20 141914.png";
-const BROKEN_FILE_NAME: &str = "this file doesn't exists.png";
+// const FILE_DIR: &str = "./test_images/";
+// const FILE_NAME1: &str = "Screenshot 2025-04-20 123359.png";
+// const FILE_NAME2: &str = "Screenshot 2025-04-20 123533.png";
+// const FILE_NAME3: &str = "Screenshot 2025-04-20 123647.png";
+// const FILE_NAME4: &str = "Screenshot 2025-04-20 124615.png";
+// const FILE_NAME5: &str = "Screenshot 2025-04-20 124742.png";
+// const FILE_NAME6: &str = "Screenshot 2025-04-20 125318.png";
+// const FILE_NAME7: &str = "Screenshot 2025-04-20 125408.png";
+// const FILE_NAME8: &str = "Screenshot 2025-04-20 131627.png";
+// const FILE_NAME9: &str = "Screenshot 2025-04-20 132021.png";
+// const FILE_NAME10: &str = "Screenshot 2025-04-20 132312.png";
+// const FILE_NAME11: &str = "Screenshot 2025-04-20 134936.png";
+// const FILE_NAME12: &str = "Screenshot 2025-04-20 141845.png";
+// const FILE_NAME13: &str = "Screenshot 2025-04-20 141914.png";
+// const BROKEN_FILE_NAME: &str = "this file doesn't exists.png";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ocr = check_manga_ocr()?;
     let fg = Furigana::minimal()?;
     let mut translator = Translator::new()?;
 
+    let args = Args::parse();
+
     let mut imgs = vec![];
-    imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME1)));
-    imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME2)));
-    imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME3)));
-    imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME4)));
-    imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME5)));
-    imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME6)));
-    imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME7)));
-    imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, BROKEN_FILE_NAME)));
-    imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME8)));
-    imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME9)));
-    imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME10)));
-    imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME11)));
-    imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME12)));
-    imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME13)));
-    
-    
+
+    for item in &args.files{
+        if item.is_file(){
+            imgs.push(item.clone())
+        }else if item.is_dir(){
+            for entry in std::fs::read_dir(item)? {
+                let entry = entry?;
+                let path = entry.path();
+
+                if path.is_file() {
+                    imgs.push(path);
+                }
+            }
+        }
+    }
+
+    // let mut imgs = vec![];
+    // imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME1)));
+    // imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME2)));
+    // imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME3)));
+    // imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME4)));
+    // imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME5)));
+    // imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME6)));
+    // imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME7)));
+    // imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, BROKEN_FILE_NAME)));
+    // imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME8)));
+    // imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME9)));
+    // imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME10)));
+    // imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME11)));
+    // imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME12)));
+    // imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME13)));
+    println!();
+    print!("Found {} files to process",imgs.len());
     let notes = Note::from_img_vec(&ocr, &fg, &mut translator, &imgs)?;
-    Note::save_to_anki_text_file(&notes,None)?;
+    Note::save_to_anki_text_file(&notes, None)?;
 
     Ok(())
 }
