@@ -213,10 +213,25 @@ impl Note {
 
     pub fn from_img_vec(ocr:&MangaOcr,fg:&Furigana,translator:&mut Translator,imgs:&[PathBuf])->Result<Vec<Self>,Box<dyn std::error::Error>>{
         let mut notes = vec![];
+        let mut errors = vec![];
         let mut pb = ProgressBar::new(imgs.len() as u64);
-        for i in imgs{
-            notes.push(Note::from_img(ocr,fg,translator,i)?);
+        let size = imgs.len();
+        for i in 0..size{
+            let img = imgs.get(i).unwrap();
+            let out = Note::from_img(ocr,fg,translator,img);
+            match out{
+                Ok(v) => notes.push(v),
+                Err(v) => errors.push((i,v)),
+            }
             pb.count();
+        }
+        let err_count = errors.len();
+        println!("{size:} files processed: {err_count:} failed");
+        if errors.len()>0{
+            for (i,v) in errors{
+                let img = imgs.get(i).unwrap();
+                println!("error on img {i:}: {img:?}\n\t{v:?}");
+            }
         }
         Ok(notes)
     }
@@ -236,6 +251,7 @@ const FILE_NAME10: &str = "Screenshot 2025-04-20 132312.png";
 const FILE_NAME11: &str = "Screenshot 2025-04-20 134936.png";
 const FILE_NAME12: &str = "Screenshot 2025-04-20 141845.png";
 const FILE_NAME13: &str = "Screenshot 2025-04-20 141914.png";
+const BROKEN_FILE_NAME: &str = "this file doesn't exists.png";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ocr = check_manga_ocr()?;
@@ -250,6 +266,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME5)));
     imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME6)));
     imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME7)));
+    imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, BROKEN_FILE_NAME)));
     imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME8)));
     imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME9)));
     imgs.push(PathBuf::from(format!("{}{}", FILE_DIR, FILE_NAME10)));
