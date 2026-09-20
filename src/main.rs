@@ -1,5 +1,5 @@
 use clap::Parser;
-use std::{path::PathBuf};
+use std::{path::PathBuf, sync::Mutex};
 
 use furigana::Furigana;
 use manga_ocr_rs::MangaOcr;
@@ -14,21 +14,28 @@ mod note;
 struct Args {
     #[arg(required = true, num_args = 1..)]
     files: Vec<PathBuf>,
+    #[arg(short,long,default_value_t=4)]
+    threads:usize
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ocr = check_manga_ocr()?;
     let fg = Furigana::minimal()?;
-    let mut translator = Translator::new()?;
 
     let args = Args::parse();
 
     let imgs = collect_images(&args.files)?;
     let name:Option<String> = args.files.get(0).unwrap().file_name().map(|s| s.to_owned().into_string().unwrap());
 
+    let thread_pool_size = args.threads.min(imgs.len());
+    let mut translator_vec = vec![];
+    for _ in 0..thread_pool_size{
+        translator_vec.push(Mutex::new(Translator::new()?))
+    }
+
     println!();
     print!("Found {} files to process",imgs.len());
-    let notes = Note::from_img_vec(&ocr, &fg, &mut translator, &imgs)?;
+    let notes = Note::from_img_vec(&ocr, &fg, &translator_vec, &imgs)?;
     Note::save_to_anki_text_file(&notes, name)?;
 
     Ok(())

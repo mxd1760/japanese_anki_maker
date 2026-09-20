@@ -1,16 +1,19 @@
 use std::io::prelude::*;
+use std::sync::{Arc, Mutex};
+use rayon::prelude::*;
 use std::fs::File;
 use std::path::PathBuf;
 
 use furigana::Furigana;
 use manga_ocr_rs::MangaOcr;
+use rayon::ThreadPoolBuilder;
 
 use crate::progress_bar::ProgressBar;
 use crate::translator::Translator;
 
 
 
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub struct Note {
     japanese: String,
     furigana: Option<String>,
@@ -75,7 +78,7 @@ impl Note {
         fg: &Furigana,
         translator: &mut Translator,
         img_path: &PathBuf,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         // let test_text = "お前わもう死んでいる";
         let img = image::open(img_path)?;
 
@@ -100,30 +103,44 @@ impl Note {
     pub fn from_img_vec(
         ocr: &MangaOcr,
         fg: &Furigana,
-        translator: &mut Translator,
+        translators: &[Mutex<Translator>],
         imgs: &[PathBuf],
     ) -> Result<Vec<Self>, Box<dyn std::error::Error>> {
-        let mut notes = vec![];
-        let mut errors = vec![];
-        let mut pb = ProgressBar::new(imgs.len() as u64);
+        
+        let worker_count = translators.len();
+        let pool = ThreadPoolBuilder::new()
+            .num_threads(worker_count)
+            .build()?;
+        
         let size = imgs.len();
-        for i in 0..size {
-            let img = imgs.get(i).unwrap();
-            let out = Note::from_img(ocr, fg, translator, img);
-            match out {
-                Ok(v) => notes.push(v),
-                Err(v) => errors.push((i, v)),
+        let pb = Arc::new(ProgressBar::new(size as u64));
+
+        let results:Vec<Result<Note,Box<dyn std::error::Error + Send + Sync>>> = pool.install(||{
+            imgs.par_iter()
+            .map(|img| {
+                let index = rayon::current_thread_index().unwrap();
+                let mut translator = translators[index].lock().unwrap();
+                let out = Note::from_img(ocr,fg,&mut translator,img);
+                pb.count()?;
+                out
+            })
+            .collect::<Vec<_>>()
+        });
+
+        let err_count = results.iter().fold(0,|acc,v| acc + if v.is_err() {1} else {0});
+        println!("{size:} files processed: {err_count:} failed                       "); // whitespace erases progress_Bar
+        let mut notes = vec![];
+        results.iter()
+        .enumerate()
+        .for_each(|(i,v)|{
+                if let Err(value) = v{
+                    let img = imgs.get(i).unwrap();
+                    println!("error on img {i:}: {img:?}\n\t{value:?}");
+                }else if let Ok(value) = v{
+                    notes.push(value.clone())
+                }
             }
-            pb.count()?;
-        }
-        let err_count = errors.len();
-        println!("{size:} files processed: {err_count:} failed");
-        if errors.len() > 0 {
-            for (i, v) in errors {
-                let img = imgs.get(i).unwrap();
-                println!("error on img {i:}: {img:?}\n\t{v:?}");
-            }
-        }
+        );
         Ok(notes)
     }
 }

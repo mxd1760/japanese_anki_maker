@@ -29,7 +29,7 @@ impl Translator {
         })
     }
 
-    pub fn translate(&mut self, japanese_text: &str) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn translate(&mut self, japanese_text: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         // let pieces = self.spp
         //    .encode(&japanese_text)
         //    .map_err(|e| format!("Failed to tokenize text: {e}"))?;
