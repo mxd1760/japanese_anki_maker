@@ -114,7 +114,7 @@ impl Note {
                 Ok(v) => notes.push(v),
                 Err(v) => errors.push((i, v)),
             }
-            pb.count();
+            pb.count()?;
         }
         let err_count = errors.len();
         println!("{size:} files processed: {err_count:} failed");

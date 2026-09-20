@@ -1,3 +1,5 @@
+use std::io::prelude::*;
+
 pub struct ProgressBar {
     max: u64,
     value: u64,
@@ -14,14 +16,15 @@ impl ProgressBar {
             length: 20,
         }
     }
-    pub fn count(&mut self) {
+    pub fn count(&mut self) -> std::io::Result<()> {
         self.value += 1;
         if self.value > self.max {
             self.value = self.max
         }
-        self.draw();
+        self.draw()?;
+        Ok(())
     }
-    pub fn draw(&self) {
+    pub fn draw(&self) -> std::io::Result<()>{
         let mut out = "".to_owned();
         let ratio = self.value as f64 / self.max as f64;
         for i in 0..self.length {
@@ -31,6 +34,8 @@ impl ProgressBar {
                 out.push('_');
             }
         }
-        println!("Progress |{}|", out)
+        print!("  Progress |{}|\r", out);
+        std::io::stdout().flush()?;
+        Ok(())
     }
 }
