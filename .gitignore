@@ -3,4 +3,5 @@
 /.vscode/
 /.vscode/settings.json
 /test_images/
-output.txt
+/output/
+/_jam_output/

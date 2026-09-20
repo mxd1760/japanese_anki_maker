@@ -1,10 +1,12 @@
+use std::path::PathBuf;
+
 use ort::{session::Session, value::Tensor};
 use sentencepiece_rs::SentencePieceProcessor;
 
-const SOURCE_SPM_FILE: &str = "./models/fugumt_onnx/source.spm";
-const TARGET_SPM_FILE: &str = "./models/fugumt_onnx/target.spm";
-const ENCODER_MODEL_FILE: &str = "./models/fugumt_onnx/encoder_model.onnx";
-const DECODER_MODEL_FILE: &str = "./models/fugumt_onnx/decoder_model.onnx";
+const SOURCE_SPM_FILE: &str = "./fugumt_onnx/source.spm";
+const TARGET_SPM_FILE: &str = "./fugumt_onnx/target.spm";
+const ENCODER_MODEL_FILE: &str = "./fugumt_onnx/encoder_model.onnx";
+const DECODER_MODEL_FILE: &str = "./fugumt_onnx/decoder_model.onnx";
 
 pub struct Translator {
     spp: SentencePieceProcessor,
@@ -14,13 +16,21 @@ pub struct Translator {
 }
 
 impl Translator {
-    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        let spp = SentencePieceProcessor::open(SOURCE_SPM_FILE)
+    pub fn new(models_dir:&PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
+        let mut spp_file_path = models_dir.clone();
+        spp_file_path.push(SOURCE_SPM_FILE);
+        let spp = SentencePieceProcessor::open(spp_file_path)
             .map_err(|e| format!("Failed to load SentencePiece source model: {e}"))?;
-        let tpp = SentencePieceProcessor::open(TARGET_SPM_FILE)
+        let mut tpp_file_path = models_dir.clone();
+        tpp_file_path.push(TARGET_SPM_FILE);
+        let tpp = SentencePieceProcessor::open(tpp_file_path)
             .map_err(|e| format!("failed to load SentencePiece target model: {e}"))?;
-        let encoder_session = Session::builder()?.commit_from_file(ENCODER_MODEL_FILE)?;
-        let decoder_session = Session::builder()?.commit_from_file(DECODER_MODEL_FILE)?;
+        let mut enc_file_path = models_dir.clone();
+        enc_file_path.push(ENCODER_MODEL_FILE);
+        let encoder_session = Session::builder()?.commit_from_file(enc_file_path)?;
+        let mut dec_file_path = models_dir.clone();
+        dec_file_path.push(DECODER_MODEL_FILE);
+        let decoder_session = Session::builder()?.commit_from_file(dec_file_path)?;
         Ok(Self {
             spp,
             tpp,

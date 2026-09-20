@@ -28,12 +28,15 @@ impl Note {
         notes: &[Self],
         deck_name: Option<String>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut file = File::create("output.txt")?;
         // write Anki headers
         let deck = match deck_name {
             Some(v) => v,
             None => "Japanese Anki Maker Template".into(),
         };
+        let mut output = PathBuf::from("_jam_output");
+        std::fs::create_dir_all(&output)?;
+        output.push(deck.clone()+".txt");
+        let mut file = File::create(output)?;
         file.write(
             format!(
                 r"#separator:Semicolon

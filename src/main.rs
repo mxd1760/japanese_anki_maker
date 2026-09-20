@@ -1,5 +1,5 @@
 use clap::Parser;
-use std::{path::PathBuf, sync::Mutex};
+use std::{env, path::PathBuf, sync::Mutex};
 
 use furigana::Furigana;
 use manga_ocr_rs::MangaOcr;
@@ -29,8 +29,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let thread_pool_size = args.threads.min(imgs.len());
     let mut translator_vec = vec![];
+    let model_dir = find_model_directory()?;
     for _ in 0..thread_pool_size{
-        translator_vec.push(Mutex::new(Translator::new()?))
+        translator_vec.push(Mutex::new(Translator::new(&model_dir)?))
     }
 
     println!();
@@ -96,3 +97,35 @@ fn collect_images(files: &[PathBuf]) -> Result<Vec<PathBuf>,Box<dyn std::error::
     Ok(imgs)
 }
 
+fn find_model_directory() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let mut candidates = Vec::new();
+
+    // 1. Current working directory
+    candidates.push(env::current_dir()?.join("models"));
+
+    // 2. Directory containing the executable
+    let exe_dir = env::current_exe()?
+        .parent()
+        .ok_or("Could not determine executable directory")?
+        .to_path_buf();
+
+    candidates.push(exe_dir.join("models"));
+
+    // 3. Every directory in PATH
+    if let Some(path) = env::var_os("PATH") {
+        for dir in env::split_paths(&path) {
+            candidates.push(dir.join("models"));
+        }
+    }
+
+    // 4. Project root when running from target/debug or target/release
+    candidates.push(exe_dir.join("../../models"));
+
+    for path in candidates {
+        if path.is_dir() {
+            return Ok(path.canonicalize()?);
+        }
+    }
+
+    Err("Could not find models directory".into())
+}
